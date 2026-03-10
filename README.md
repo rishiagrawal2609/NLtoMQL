@@ -329,19 +329,19 @@ A: Yes! Replace `--model` with any HuggingFace model ID:
 .venv/bin/python NLtoMQL_SLM.py train --model microsoft/phi-4-mini-instruct --epochs 3
 ```
 
-**Q: Why SmolLM3-3B over TinyLlama?**
+**Q: Why SmolLM3-3B over TinyLlama?** </br>
 A: SmolLM3-3B is a 2025 model that significantly outperforms TinyLlama-1.1B on reasoning, code generation, and instruction following. It's 3× larger but still fits in 8GB unified memory on Apple Silicon.
 
-**Q: How accurate is the generated MQL?**
+**Q: How accurate is the generated MQL?** </br>
 A: After 3 epochs with SmolLM3-3B, expect 80-90%+ valid MQL queries — a significant improvement over TinyLlama.
 
-**Q: Can I add more training data?**
+**Q: Can I add more training data?** </br>
 A: Yes! Append rows to your CSV and retrain. The model benefits from more diverse examples.
 
-**Q: What's the difference between the two Python scripts?**
+**Q: What's the difference between the two Python scripts?** </br>
 A: Both produce the same result. `NLtoMQL_SLM.py` is simpler (~250 lines, manual training loop), `DataProcessing.py` uses HF Trainer (gradient accumulation, checkpointing).
 
-**Q: Can I deploy this on a web server?**
+**Q: Can I deploy this on a web server?** </br>
 A: Yes! Use FastAPI + the `generate_mql()` function from either script.
 
 ---

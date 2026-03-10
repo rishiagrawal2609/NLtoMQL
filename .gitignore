@@ -46,6 +46,4 @@ models/
 *.swo
 
 # Project specific
-atlas_sample_data_benchmark.csv
-atlas_sample_data_benchmark.flat.csv
 training_metadata.json
