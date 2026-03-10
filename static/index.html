@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NL → MQL | MongoDB Query Generator</title>
+  <meta name="description" content="Convert natural language to MongoDB queries using SmolLM3-3B AI" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Variables ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary:    #0a0e17;
+      --bg-secondary:  #111827;
+      --bg-card:       #1a2035;
+      --bg-input:      #0d1321;
+      --border:        #1e293b;
+      --border-focus:  #6366f1;
+      --text-primary:  #f1f5f9;
+      --text-secondary:#94a3b8;
+      --text-muted:    #64748b;
+      --accent:        #6366f1;
+      --accent-hover:  #818cf8;
+      --accent-glow:   rgba(99, 102, 241, 0.25);
+      --green:         #10b981;
+      --green-dim:     rgba(16, 185, 129, 0.15);
+      --amber:         #f59e0b;
+      --red:           #ef4444;
+      --cyan:          #22d3ee;
+      --radius:        12px;
+      --radius-lg:     16px;
+      --shadow:        0 4px 24px rgba(0,0,0,0.4);
+      --transition:    0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background gradient ──────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(99,102,241,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(34,211,238,0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ────────────────────────────────────────────── */
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── Header ────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .header__logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .header__icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      border-radius: 12px;
+      display: grid; place-items: center;
+      font-size: 1.3rem;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--text-primary), var(--accent-hover));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header__sub {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
+
+    .header__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 0.75rem;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 20px;
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(16,185,129,0.2);
+    }
+
+    .header__badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Card ──────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      box-shadow: var(--shadow);
+      transition: border-color var(--transition);
+    }
+    .card:hover { border-color: rgba(99,102,241,0.2); }
+    .card + .card { margin-top: 1.25rem; }
+
+    .card__title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card__title-icon { font-size: 1rem; }
+
+    /* ── Textarea ──────────────────────────────────────────── */
+    .query-input {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem 1.15rem;
+      background: var(--bg-input);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .query-input::placeholder { color: var(--text-muted); }
+    .query-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    /* ── Controls row ─────────────────────────────────────── */
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .control-group label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .control-group input[type="number"],
+    .control-group input[type="range"] {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 0.65rem;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      width: 90px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .control-group input:focus { border-color: var(--border-focus); }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .slider-row input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 120px;
+      height: 5px;
+      border-radius: 5px;
+      background: var(--border);
+      outline: none;
+      border: none;
+      padding: 0;
+    }
+    .slider-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .slider-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent-hover);
+      min-width: 2.5rem;
+      text-align: center;
+    }
+
+    /* ── Button ────────────────────────────────────────────── */
+    .btn-primary {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.6rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(99,102,241,0.4);
+    }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+    .btn-primary.loading .spinner { display: block; }
+    .btn-primary.loading .btn-text { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Example chips ─────────────────────────────────────── */
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.85rem;
+    }
+
+    .examples__label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      width: 100%;
+      margin-bottom: 0.1rem;
+    }
+
+    .chip {
+      padding: 0.35rem 0.8rem;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.15);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .chip:hover {
+      color: var(--accent-hover);
+      background: rgba(99,102,241,0.15);
+      border-color: rgba(99,102,241,0.3);
+    }
+
+    /* ── Output card ───────────────────────────────────────── */
+    .output-card { display: none; }
+    .output-card.visible { display: block; }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .output-meta {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .output-meta span { display: flex; align-items: center; gap: 0.3rem; }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.7rem;
+      background: rgba(99,102,241,0.1);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 8px;
+      color: var(--accent-hover);
+      font-size: 0.75rem;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .copy-btn:hover { background: rgba(99,102,241,0.2); }
+    .copy-btn.copied {
+      color: var(--green);
+      border-color: rgba(16,185,129,0.3);
+      background: var(--green-dim);
+    }
+
+    /* ── Code block ────────────────────────────────────────── */
+    .code-block {
+      position: relative;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.25rem;
+      overflow-x: auto;
+    }
+
+    .code-block pre {
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.65;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Basic syntax highlighting */
+    .code-block .kw  { color: #c084fc; }
+    .code-block .str { color: #34d399; }
+    .code-block .num { color: #fbbf24; }
+    .code-block .op  { color: #f97316; }
+    .code-block .fn  { color: #60a5fa; }
+    .code-block .br  { color: #94a3b8; }
+
+    /* ── Error ─────────────────────────────────────────────── */
+    .error-box {
+      display: none;
+      padding: 1rem 1.15rem;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: var(--radius);
+      color: #fca5a5;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin-top: 1.25rem;
+    }
+    .error-box.visible { display: block; }
+
+    /* ── History ────────────────────────────────────────────── */
+    .history-section { margin-top: 2rem; }
+
+    .history-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.15rem;
+      margin-bottom: 0.75rem;
+      transition: border-color var(--transition);
+      cursor: pointer;
+    }
+    .history-item:hover { border-color: rgba(99,102,241,0.25); }
+
+    .history-item__query {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .history-item__mql {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--accent-hover);
+      background: var(--bg-input);
+      border-radius: 6px;
+      padding: 0.5rem 0.7rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: pre-wrap;
+    }
+
+    .history-item__meta {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Footer ────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      margin-top: 3rem;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .footer a {
+      color: var(--accent-hover);
+      text-decoration: none;
+    }
+    .footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .app { padding: 1.25rem 1rem 3rem; }
+      .header h1 { font-size: 1.4rem; }
+      .controls { flex-direction: column; align-items: stretch; }
+      .btn-primary { margin-left: 0; justify-content: center; }
+    }
+
+    /* ── Skeleton shimmer ──────────────────────────────────── */
+    .skeleton {
+      border-radius: var(--radius);
+      background: linear-gradient(90deg, var(--bg-input) 25%, rgba(99,102,241,0.06) 50%, var(--bg-input) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      height: 120px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header__logo">
+      <div class="header__icon">⚡</div>
+      <h1>NL → MQL</h1>
+    </div>
+    <p class="header__sub">Natural language to MongoDB queries, powered by SmolLM3-3B</p>
+    <div class="header__badge" id="statusBadge">
+      <span class="dot"></span>
+      <span id="statusText">Checking model…</span>
+    </div>
+  </header>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card__title">
+      <span class="card__title-icon">💬</span> Your Query
+    </div>
+    <textarea
+      class="query-input"
+      id="queryInput"
+      placeholder="Describe what you want to find in MongoDB…&#10;&#10;e.g. Find all users over 25 sorted by signup date"
+      spellcheck="false"
+    ></textarea>
+
+    <div class="examples">
+      <span class="examples__label">Try an example:</span>
+      <span class="chip" data-q="Find all users where age is greater than 25">age > 25</span>
+      <span class="chip" data-q="Show me the top 10 customers by total purchase amount">top 10 by spend</span>
+      <span class="chip" data-q="Group sales by month and calculate total revenue, then sort descending">monthly revenue</span>
+      <span class="chip" data-q="Count the number of transactions per account type in 2023">txns by type</span>
+      <span class="chip" data-q="Find movies with IMDb rating above 8.5 that were released after 2010, and return title, year, and rating">top movies</span>
+      <span class="chip" data-q="Get the average order value per country for orders placed in the last 90 days">avg order by country</span>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="tempSlider">Temperature</label>
+        <div class="slider-row">
+          <input type="range" id="tempSlider" min="0" max="1" step="0.05" value="0.2" />
+          <span class="slider-val" id="tempVal">0.20</span>
+        </div>
+      </div>
+      <div class="control-group">
+        <label for="maxTokens">Max Tokens</label>
+        <input type="number" id="maxTokens" min="50" max="2000" step="50" value="1000" />
+      </div>
+      <button class="btn-primary" id="runBtn" type="button">
+        <span class="spinner"></span>
+        <span class="btn-text">Generate MQL</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Output card -->
+  <div class="card output-card" id="outputCard">
+    <div class="output-header">
+      <div class="card__title" style="margin-bottom:0;">
+        <span class="card__title-icon">🔮</span> Generated MQL
+      </div>
+      <div style="display:flex; gap:0.5rem; align-items:center;">
+        <div class="output-meta" id="outputMeta"></div>
+        <button class="copy-btn" id="copyBtn" type="button">
+          <span id="copyIcon">📋</span> <span id="copyText">Copy</span>
+        </button>
+      </div>
+    </div>
+    <div class="code-block">
+      <pre id="codeOutput"></pre>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="history-section" id="historySection" style="display:none;">
+    <div class="card">
+      <div class="card__title">
+        <span class="card__title-icon">🕒</span> Recent Queries
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    Powered by <a href="https://huggingface.co/HuggingFaceTB/SmolLM3-3B" target="_blank">SmolLM3-3B</a>
+    &nbsp;·&nbsp; LoRA fine-tuned on 766 MongoDB query pairs
+    &nbsp;·&nbsp; Running on <span id="footerDevice">…</span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── DOM refs ──────────────────────────────────────────── */
+  const queryInput  = document.getElementById('queryInput');
+  const tempSlider  = document.getElementById('tempSlider');
+  const tempVal     = document.getElementById('tempVal');
+  const maxTokens   = document.getElementById('maxTokens');
+  const runBtn      = document.getElementById('runBtn');
+  const errorBox    = document.getElementById('errorBox');
+  const outputCard  = document.getElementById('outputCard');
+  const codeOutput  = document.getElementById('codeOutput');
+  const outputMeta  = document.getElementById('outputMeta');
+  const copyBtn     = document.getElementById('copyBtn');
+  const copyText    = document.getElementById('copyText');
+  const statusBadge = document.getElementById('statusBadge');
+  const statusText  = document.getElementById('statusText');
+  const footerDev   = document.getElementById('footerDevice');
+  const historySection = document.getElementById('historySection');
+  const historyList    = document.getElementById('historyList');
+
+  let lastMql = '';
+  let history = JSON.parse(localStorage.getItem('nl2mql_history') || '[]');
+
+  /* ── Health check ──────────────────────────────────────── */
+  async function checkHealth() {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      if (data.adapter_ready) {
+        statusText.textContent = `${data.device.toUpperCase()} · SmolLM3-3B ready`;
+        statusBadge.style.background = 'rgba(16,185,129,0.15)';
+        statusBadge.style.color = '#10b981';
+        statusBadge.style.borderColor = 'rgba(16,185,129,0.2)';
+      } else {
+        statusText.textContent = 'Adapter not trained yet';
+        statusBadge.style.background = 'rgba(245,158,11,0.15)';
+        statusBadge.style.color = '#f59e0b';
+        statusBadge.style.borderColor = 'rgba(245,158,11,0.2)';
+      }
+      footerDev.textContent = data.device.toUpperCase();
+    } catch {
+      statusText.textContent = 'Server offline';
+      statusBadge.style.background = 'rgba(239,68,68,0.15)';
+      statusBadge.style.color = '#ef4444';
+      statusBadge.style.borderColor = 'rgba(239,68,68,0.2)';
+    }
+  }
+  checkHealth();
+
+  /* ── Temp slider ───────────────────────────────────────── */
+  tempSlider.addEventListener('input', () => {
+    tempVal.textContent = parseFloat(tempSlider.value).toFixed(2);
+  });
+
+  /* ── Example chips ─────────────────────────────────────── */
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      queryInput.value = chip.dataset.q;
+      queryInput.focus();
+      queryInput.style.height = 'auto';
+      queryInput.style.height = queryInput.scrollHeight + 'px';
+    });
+  });
+
+  /* ── Syntax highlight (basic) ──────────────────────────── */
+  function highlightMql(text) {
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      // Strings
+      .replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, '<span class="str">"$1"</span>')
+      // MongoDB operators
+      .replace(/(\$\w+)/g, '<span class="op">$1</span>')
+      // Numbers
+      .replace(/\b(\d+\.?\d*)\b/g, '<span class="num">$1</span>')
+      // Keywords
+      .replace(/\b(db|aggregate|find|sort|limit|skip|project|unwind|group|match|lookup|true|false|null|new|Date|ISODate|ObjectId|NumberLong|NumberInt)\b/g, '<span class="kw">$1</span>')
+      // Brackets
+      .replace(/([{}[\]()])/g, '<span class="br">$1</span>');
+  }
+
+  /* ── Run inference ─────────────────────────────────────── */
+  async function runInference() {
+    const query = queryInput.value.trim();
+    if (!query) { queryInput.focus(); return; }
+
+    runBtn.classList.add('loading');
+    runBtn.disabled = true;
+    errorBox.classList.remove('visible');
+    outputCard.classList.remove('visible');
+
+    try {
+      const res = await fetch('/api/infer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nl_query: query,
+          temperature: parseFloat(tempSlider.value),
+          max_new_tokens: parseInt(maxTokens.value, 10),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Server error' }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      lastMql = data.mql;
+
+      codeOutput.innerHTML = highlightMql(data.mql);
+      outputMeta.innerHTML = `
+        <span>⚡ ${data.elapsed_seconds}s</span>
+        <span>🖥 ${data.device.toUpperCase()}</span>
+      `;
+      outputCard.classList.add('visible');
+
+      // Save to history
+      history.unshift({ query, mql: data.mql, device: data.device, time: data.elapsed_seconds, ts: Date.now() });
+      if (history.length > 20) history.pop();
+      localStorage.setItem('nl2mql_history', JSON.stringify(history));
+      renderHistory();
+
+    } catch (err) {
+      errorBox.textContent = `⚠️ ${err.message}`;
+      errorBox.classList.add('visible');
+    } finally {
+      runBtn.classList.remove('loading');
+      runBtn.disabled = false;
+    }
+  }
+
+  runBtn.addEventListener('click', runInference);
+  queryInput.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      runInference();
+    }
+  });
+
+  /* ── Copy button ───────────────────────────────────────── */
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(lastMql);
+      copyBtn.classList.add('copied');
+      copyText.textContent = 'Copied!';
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyText.textContent = 'Copy';
+      }, 2000);
+    } catch {}
+  });
+
+  /* ── History ───────────────────────────────────────────── */
+  function renderHistory() {
+    if (history.length === 0) {
+      historySection.style.display = 'none';
+      return;
+    }
+    historySection.style.display = 'block';
+    historyList.innerHTML = history.slice(0, 5).map(h => `
+      <div class="history-item" data-q="${h.query.replace(/"/g, '&quot;')}">
+        <div class="history-item__query">${h.query}</div>
+        <div class="history-item__mql">${h.mql}</div>
+        <div class="history-item__meta">
+          <span>⚡ ${h.time}s</span>
+          <span>🖥 ${h.device.toUpperCase()}</span>
+          <span>${new Date(h.ts).toLocaleTimeString()}</span>
+        </div>
+      </div>
+    `).join('');
+
+    document.querySelectorAll('.history-item').forEach(item => {
+      item.addEventListener('click', () => {
+        queryInput.value = item.dataset.q;
+        queryInput.focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+  }
+  renderHistory();
+
+  /* ── Auto-resize textarea ──────────────────────────────── */
+  queryInput.addEventListener('input', () => {
+    queryInput.style.height = 'auto';
+    queryInput.style.height = Math.min(queryInput.scrollHeight, 300) + 'px';
+  });
+
+})();
+</script>
+</body>
+</html>
