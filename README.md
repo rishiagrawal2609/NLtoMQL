@@ -9,7 +9,7 @@ This project fine-tunes **SmolLM3-3B** — HuggingFace's state-of-the-art 3-bill
 
 ## Data Acquisition
 
-The data was acquired from MongoDB Atlas Sample Dataset Benchmark available on Hugging Face: https://huggingface.co/datasets/mongodb-eai/natural-language-to-mongosh by [Ben Perlmutter](https://github.com/mongodben) from MongoDB Education Team.
+The data was acquired from the [MongoDB Atlas Sample Dataset Benchmark](https://huggingface.co/datasets/mongodb-eai/natural-language-to-mongosh) available on Hugging Face by [Ben Perlmutter](https://github.com/mongodben) from the MongoDB Education Team.
 
 ### Key Features
 
